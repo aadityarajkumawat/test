@@ -81,9 +81,9 @@ export default async function (req, res) {
       res.write(chunkData.token);
     }
 
-    res.status(200).end("END_STREAM");
+    return res.status(200).end("END_STREAM");
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).end("END_STREAM");
   }
 }
