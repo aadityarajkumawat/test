@@ -24,7 +24,7 @@ export default async function (req, res) {
 
     if (!response.ok) {
       const errorMessage = `Request failed with status ${response.status}: ${response.statusText}`;
-      return res.status(response.status).json({ error: errorMessage });
+      return res.end(errorMessage);
     }
 
     console.log("response", response);
@@ -35,7 +35,7 @@ export default async function (req, res) {
 
     if (!data.msg) {
       const errorMessage = `Unexpected response: ${JSON.stringify(data)}`;
-      return res.status(500).json({ error: errorMessage });
+      return res.end(errorMessage);
     }
 
     const streamingUrl = data.streaming_url;
@@ -50,7 +50,7 @@ export default async function (req, res) {
 
     if (!streamRes.ok) {
       const errorMessage = `Stream request failed with status ${streamRes.status}.`;
-      return res.status(streamRes.status).json({ error: errorMessage });
+      return res.send(errorMessage);
     }
 
     const reader = streamRes.body?.getReader();
