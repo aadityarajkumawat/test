@@ -45,6 +45,8 @@ export default async function (req, res) {
 
     const streamRes = await fetch(streamingUrl, { method: "GET" });
 
+    console.log("streamRes", streamRes);
+
     const reader = streamRes.body?.getReader();
     if (!reader) return;
 
