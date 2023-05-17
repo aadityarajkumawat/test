@@ -45,11 +45,6 @@ export default async function (req, res) {
 
     const streamRes = await fetch(streamingUrl, { method: "GET" });
 
-    if (!streamRes.ok) {
-      const errorMessage = `Stream request failed with status ${streamRes.status}.`;
-      return res.send(errorMessage);
-    }
-
     const reader = streamRes.body?.getReader();
     if (!reader) return;
 
