@@ -27,7 +27,11 @@ export default async function (req, res) {
       return res.status(response.status).json({ error: errorMessage });
     }
 
+    console.log("response", response);
+
     const data = await response.json();
+
+    console.log("data", data);
 
     if (!data.msg) {
       const errorMessage = `Unexpected response: ${JSON.stringify(data)}`;
@@ -35,6 +39,8 @@ export default async function (req, res) {
     }
 
     const streamingUrl = data.streaming_url;
+
+    console.log("streamingUrl", streamingUrl);
 
     if (!streamingUrl) {
       return;
@@ -75,7 +81,7 @@ export default async function (req, res) {
       res.write(chunkData.token);
     }
 
-    res.end("END_STREAM");
+    res.status(200).end("END_STREAM");
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
