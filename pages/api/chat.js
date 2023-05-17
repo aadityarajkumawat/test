@@ -1,7 +1,4 @@
 // add vercel config for running the function on edge
-export const config = {
-  runtime: "edge",
-};
 
 export default async function (req, res) {
   const kluEndpointUrl = "https://api.klu.ai/v1/actions/";
