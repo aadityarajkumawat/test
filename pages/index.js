@@ -77,31 +77,48 @@ export default function Home() {
     if (!res.ok) return;
 
     const reader = res.body?.getReader();
-
     if (!reader) return;
 
-    let str = "";
-    while (true) {
-      const { done, value } = await reader.read();
+    const decoder = new TextDecoder();
+
+    let done = false;
+
+    let text = "";
+    while (!done) {
+      const { done: doneReading, value } = await reader.read();
+      done = doneReading;
+
       if (done) {
         onCompletion();
-        break;
+        return;
       }
-      const chunk = new TextDecoder("utf-8").decode(value);
-      if (chunk.includes("END_STREAM")) {
-        onCompletion();
-        break;
-      }
-      setStream((prev) => (prev ? prev + chunk : chunk));
-      str += chunk;
+
+      const chunkValue = decoder.decode(value);
+      setStream((s) => (s ? s + chunkValue : chunkValue));
+      text += chunkValue;
     }
+
+    // while (true) {
+    //   const { done, value } = await reader.read();
+    //   if (done) {
+    //     onCompletion();
+    //     break;
+    //   }
+    //   const chunk = new TextDecoder("utf-8").decode(value);
+    //   if (chunk.includes("END_STREAM")) {
+    //     onCompletion();
+    //     break;
+    //   }
+    //   setStream((prev) => (prev ? prev + chunk : chunk));
+    //   str += chunk;
+    // }
 
     function onCompletion() {
       setUserInput("");
       setStream(null);
       setMessages((prevMessages) => [
         ...prevMessages,
-        { message: str, type: "apiMessage" },
+        { message: text, type: "apiMessage" },
       ]);
       setLoading(false);
     }

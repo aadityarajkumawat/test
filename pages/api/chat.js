@@ -1,10 +1,17 @@
-// add vercel config for running the function on edge
+import { createParser } from "eventsource-parser";
 
-export default async function (req, res) {
+// add vercel config for running the function on edge
+export const config = {
+  runtime: "edge",
+};
+
+export default async function (req) {
   const kluEndpointUrl = "https://api.klu.ai/v1/actions/";
   const kluToken = "EeebQD9I6ZOi4LYDtqENg606h6Oe5VUUtyg//Lix+/8=";
 
   try {
+    const { question } = await req.json();
+
     const response = await fetch(kluEndpointUrl, {
       method: "POST",
       headers: {
@@ -12,72 +19,64 @@ export default async function (req, res) {
         Authorization: `Bearer ${kluToken}`,
       },
       body: JSON.stringify({
-        prompt: req.body.question,
-        action: "6ed64af3-7f0d-4751-8573-5570b4ee3f16", // davinci
-        // action: "995e9d20-b208-45ef-b001-020fe5cc3d21", // claude
+        prompt: question,
+        agent: "6ed64af3-7f0d-4751-8573-5570b4ee3f16", // davinci
+        // agent: "995e9d20-b208-45ef-b001-020fe5cc3d21", // claude
         streaming: "true",
       }),
     });
 
-    if (!response.ok) {
-      const errorMessage = `Request failed with status ${response.status}: ${response.statusText}`;
-      return res.end(errorMessage);
-    }
-
-    console.log("response", response);
-
     const data = await response.json();
-
-    console.log("data", data);
 
     if (!data.msg) {
       const errorMessage = `Unexpected response: ${JSON.stringify(data)}`;
-      return res.end(errorMessage);
+      throw new Error(errorMessage);
     }
 
     const streamingUrl = data.streaming_url;
-
-    console.log("streamingUrl", streamingUrl);
-
     if (!streamingUrl) {
-      return;
+      throw new Error("No streaming url");
     }
 
-    const streamRes = await fetch(streamingUrl, { method: "GET" });
+    const streamRes = await fetch(streamingUrl);
 
-    console.log("streamRes", streamRes);
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-    const reader = streamRes.body?.getReader();
-    if (!reader) return;
+    const stream = new ReadableStream({
+      async start(controller) {
+        const onParse = (event) => {
+          if (event.type === "event") {
+            const data = event.data;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
+            if (data.includes("END_STREAM")) {
+              controller.close();
+              return;
+            }
 
-      let chunk = new TextDecoder("utf-8").decode(value).trim();
+            try {
+              if (data !== "BEGIN_STREAM") {
+                let token = JSON.parse(data).token;
+                const queue = encoder.encode(token);
+                controller.enqueue(queue);
+              }
+            } catch (e) {
+              controller.error(e);
+            }
+          }
+        };
 
-      if (chunk.includes("END_STREAM")) {
-        return res.end("END_STREAM");
-      }
+        const parser = createParser(onParse);
 
-      if (chunk.includes("BEGIN_STREAM")) {
-        continue;
-      }
+        for await (const chunk of streamRes.body) {
+          parser.feed(decoder.decode(chunk));
+        }
+      },
+    });
 
-      const chunkData = JSON.parse(chunk.substring(6));
-
-      if (chunkData.token === null || chunkData.token === undefined) {
-        return;
-      }
-
-      res.write(chunkData.token);
-    }
-
-    return res.end("END_STREAM");
+    return new Response(stream);
   } catch (error) {
     console.error(error);
-    return res.end("END_STREAM");
+    return new Response(error.message, { status: 500 });
   }
 }
